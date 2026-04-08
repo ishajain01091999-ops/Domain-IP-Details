@@ -50,22 +50,22 @@ def get_domain_details(domain_name):
             creation_date = creation_date.astimezone(utc)
             creation_date = creation_date.strftime('%a, %d %b %Y %H:%M:%S') + " GMT"
         else:
-            creation_date = "N/A"
+            creation_date = "No Data"
 
         if expiration_date:
             expiration_date = expiration_date.astimezone(utc)
             expiration_date = expiration_date.strftime('%a, %d %b %Y %H:%M:%S') + " GMT"
         else:
-            expiration_date = "N/A"
+            expiration_date = "No Data"
 
         return registrar, creation_date, expiration_date
 
     except:
-        return "N/A", "N/A", "N/A"
+        return "N/A", "No Data", "No Data"
 
 
 # ------------------------------
-# CALCULATE DAYS + DOMAIN AGE
+# CALCULATE DAYS
 # ------------------------------
 def calculate_days(creation_date, expiration_date):
 
@@ -84,13 +84,47 @@ def calculate_days(creation_date, expiration_date):
         active_days = (current_date - creation_date).days
         expiry_days = (expiration_date - current_date).days
 
-        # Domain Age (registration → today)
-        domain_age = active_days
-
-        return active_days, expiry_days, domain_age
+        return active_days, expiry_days
 
     except:
-        return "N/A", "N/A", "N/A"
+        return "N/A", "N/A"
+
+
+# ------------------------------
+# DOMAIN AGE (RELATIVE FORMAT)
+# ------------------------------
+def calculate_domain_age(creation_date):
+
+    try:
+        if creation_date in ["No Data", "N/A", None]:
+            return "No Data"
+
+        creation_date = pd.to_datetime(
+            creation_date.replace(" GMT", ""), errors="coerce"
+        )
+
+        today = datetime.utcnow()
+
+        delta_days = (today - creation_date).days
+
+        years = delta_days // 365
+        months = delta_days // 30
+        weeks = delta_days // 7
+
+        if years >= 1:
+            return f"{years} year ago" if years == 1 else f"{years} years ago"
+
+        elif months >= 1:
+            return f"{months} month ago" if months == 1 else f"{months} months ago"
+
+        elif weeks >= 1:
+            return f"{weeks} week ago" if weeks == 1 else f"{weeks} weeks ago"
+
+        else:
+            return f"{delta_days} days ago"
+
+    except:
+        return "No Data"
 
 
 # ------------------------------
@@ -125,7 +159,7 @@ def get_ip_location(ip):
 
 
 # ------------------------------
-# CHECK BLACKLIST STATUS
+# CHECK IP BLACKLIST
 # ------------------------------
 def check_blacklist(ip):
 
@@ -182,11 +216,14 @@ if st.button("Analyze Domains"):
             continue
 
         final_url = get_final_url(url)
+
         domain = extract_domain(final_url)
 
         registrar, creation_date, expiration_date = get_domain_details(domain)
 
-        active_days, expiry_days, domain_age = calculate_days(creation_date, expiration_date)
+        active_days, expiry_days = calculate_days(creation_date, expiration_date)
+
+        domain_age = calculate_domain_age(creation_date)
 
         ip = get_ip(domain)
 
@@ -199,9 +236,9 @@ if st.button("Analyze Domains"):
             "Final URL": final_url,
             "Domain": domain,
             "Registrar": registrar,
-            "Creation Date": creation_date,
+            "Registration Date": creation_date,
+            "Domain Age": domain_age,
             "Expiration Date": expiration_date,
-            "Domain Age (Days)": domain_age,
             "Active Days": active_days,
             "Expiry Days": expiry_days,
             "IP Address": ip,
