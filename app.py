@@ -65,7 +65,7 @@ def get_domain_details(domain_name):
 
 
 # ------------------------------
-# CALCULATE DAYS
+# CALCULATE DAYS + DOMAIN AGE
 # ------------------------------
 def calculate_days(creation_date, expiration_date):
 
@@ -84,10 +84,13 @@ def calculate_days(creation_date, expiration_date):
         active_days = (current_date - creation_date).days
         expiry_days = (expiration_date - current_date).days
 
-        return active_days, expiry_days
+        # Domain Age (registration → today)
+        domain_age = active_days
+
+        return active_days, expiry_days, domain_age
 
     except:
-        return "N/A", "N/A"
+        return "N/A", "N/A", "N/A"
 
 
 # ------------------------------
@@ -119,6 +122,34 @@ def get_ip_location(ip):
 
     except:
         return "N/A", "N/A", "N/A"
+
+
+# ------------------------------
+# CHECK BLACKLIST STATUS
+# ------------------------------
+def check_blacklist(ip):
+
+    try:
+        url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays=90"
+
+        headers = {
+            "Key": "YOUR_ABUSEIPDB_API_KEY",
+            "Accept": "application/json"
+        }
+
+        response = requests.get(url, headers=headers)
+
+        data = response.json()["data"]
+
+        score = data.get("abuseConfidenceScore", 0)
+
+        if score > 0:
+            return "Yes"
+        else:
+            return "No"
+
+    except:
+        return "Unknown"
 
 
 # ------------------------------
@@ -155,11 +186,13 @@ if st.button("Analyze Domains"):
 
         registrar, creation_date, expiration_date = get_domain_details(domain)
 
-        active_days, expiry_days = calculate_days(creation_date, expiration_date)
+        active_days, expiry_days, domain_age = calculate_days(creation_date, expiration_date)
 
         ip = get_ip(domain)
 
         country, city, isp = get_ip_location(ip)
+
+        blacklist_status = check_blacklist(ip)
 
         results.append({
             "Input URL": url,
@@ -168,12 +201,14 @@ if st.button("Analyze Domains"):
             "Registrar": registrar,
             "Creation Date": creation_date,
             "Expiration Date": expiration_date,
+            "Domain Age (Days)": domain_age,
             "Active Days": active_days,
             "Expiry Days": expiry_days,
             "IP Address": ip,
             "Country": country,
             "City": city,
-            "ISP": isp
+            "ISP": isp,
+            "blacklisted_ip_location_detected": blacklist_status
         })
 
         progress.progress((i + 1) / len(url_list))
